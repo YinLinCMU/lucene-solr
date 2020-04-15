@@ -161,6 +161,14 @@ public abstract class CharTokenizer extends Tokenizer {
    */
   protected abstract boolean isTokenChar(int c);
 
+  protected boolean isNonPreservedDelimiter(int _c) {
+    return true;
+  };
+
+  protected boolean isPreservedDelimiter(int _c) {
+    return false;
+  };
+
   @Override
   public final boolean incrementToken() throws IOException {
     clearAttributes();
@@ -203,17 +211,36 @@ public abstract class CharTokenizer extends Tokenizer {
           break;
         }
       } else if (length > 0) {           // at non-Letter w/ chars
-        break;                           // return 'em
+        if (isNonPreservedDelimiter(c)) {
+          break;                           // return 'em
+        }
+        int nextC = c;
+        assert charCount == 1; // all preserving delimiters are only 1 code point
+        bufferIndex -= charCount;
+        while (true) {
+          end++;
+          buffer = termAtt.resizeBuffer(2 + length);
+          length += Character.toChars(nextC, buffer, length);
+          if (bufferIndex + 1 >= ioBuffer.getLength() || length >= maxTokenLen) {
+            return end(length, start, end);
+          }
+          nextC = Character.codePointAt(ioBuffer.getBuffer(), ++bufferIndex, ioBuffer.getLength());
+          if (!isPreservedDelimiter(nextC)) {
+            return end(length, start, end);
+          }
+        }
       }
     }
+    return end(length, start, end);
+  }
 
+  private boolean end(int length, int start, int end) {
     termAtt.setLength(length);
     assert start != -1;
-    offsetAtt.setOffset(correctOffset(start), finalOffset = correctOffset(end));
+    offsetAtt.setOffset(correctOffset(start), correctOffset(end));
     return true;
-    
   }
-  
+
   @Override
   public final void end() throws IOException {
     super.end();

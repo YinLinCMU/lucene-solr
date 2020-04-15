@@ -19,13 +19,16 @@ package org.apache.lucene.analysis.util;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.apache.lucene.analysis.BaseTokenStreamTestCase;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.KeywordTokenizer;
 import org.apache.lucene.analysis.core.LetterTokenizer;
+import org.apache.lucene.analysis.core.TrailingDelimiterPreservingTokenizer;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 
 
@@ -216,5 +219,24 @@ public class TestCharTokenizers extends BaseTokenStreamTestCase {
     tokenizer.setReader(reader);
     assertTokenStreamContents(tokenizer, new String[] { "Tokenizer", "Test", "Foo" });
   }
-  
+
+  public void testPreserveTrailingDelimiters() throws Exception {
+    // preserve '-''_', not preserve ' '
+    final Tokenizer tokenizer = new TrailingDelimiterPreservingTokenizer(Set.of('-', '_'), Set.of(' '));
+
+    tokenizer.setReader(new StringReader("_a_-b   c--d  "));
+    assertTokenStreamContents(tokenizer, new String[] {"a_-", "b", "c--", "d"});
+
+    tokenizer.setReader(new StringReader("    "));
+    assertTokenStreamContents(tokenizer, new String[] {});
+
+    tokenizer.setReader(new StringReader("___---"));
+    assertTokenStreamContents(tokenizer, new String[] {});
+
+    tokenizer.setReader(new StringReader("a   "));
+    assertTokenStreamContents(tokenizer, new String[] {"a"});
+
+    tokenizer.setReader(new StringReader("a_-"));
+    assertTokenStreamContents(tokenizer, new String[] {"a_-"});
+  }
 }
